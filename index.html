@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reconstitution / admixture tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h4 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .calculator {
+            margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="number"], input[type="text"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .dose-group {
+            display: flex;
+            gap: 10px;
+        }
+        .dose-group input[type="number"] {
+            flex-grow: 1;
+        }
+        .dose-group select {
+            width: auto;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 48%;
+        }
+        #calculateBtn {
+            background-color: #2c3e50;
+        }
+        #calculateBtn:hover {
+            background-color: #34495e;
+        }
+        #clearBtn {
+            background-color: #95a5a6;
+        }
+        #clearBtn:hover {
+            background-color: #7f8c8d;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e7f3fe;
+            border-left: 6px solid #2196F3;
+        }
+        .warning {
+            color: #856404;
+            background-color: #fff3cd;
+            border-color: #ffeeba;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h4>Reconstitution / Admixture tool</h4>
+        <div class="calculator">
+            <div class="form-group">
+                <label for="calculationType">Calculation Type:</label>
+                <select id="calculationType">
+                    <option value="powder">Powder Reconstitution</option>
+                    <option value="solution">Solution</option>
+                </select>
+            </div>
+            <div id="powderFields">
+                <div class="form-group">
+                    <label for="vialStrength">Vial Strength (mg):</label>
+                    <input type="number" id="vialStrength">
+                </div>
+                <div class="form-group">
+                    <label for="numberOfVials">Number of Vials:</label>
+                    <input type="number" id="numberOfVials">
+                </div>
+                <div class="form-group">
+                    <label for="diluentVolume">Total Diluent Volume (mL):</label>
+                    <input type="number" id="diluentVolume">
+                </div>
+            </div>
+            <div id="solutionFields" style="display:none;">
+                <div class="form-group">
+                    <label for="concentrationType">Concentration Type:</label>
+                    <select id="concentrationType">
+                        <option value="mgml">mg/mL</option>
+                        <option value="percentage">Percentage (%)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="solutionConcentration">Solution Concentration:</label>
+                    <input type="number" id="solutionConcentration">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="desiredDose">Desired Dose:</label>
+                <div class="dose-group">
+                    <input type="number" id="desiredDose">
+                    <select id="doseUnit">
+                        <option value="mg">mg</option>
+                        <option value="g">g</option>
+                    </select>
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="calculateBtn" onclick="calculate()">Calculate</button>
+                <button id="clearBtn" onclick="clearForm()">Reset</button>
+            </div>
+        </div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function toggleFields() {
+            const calculationType = document.getElementById('calculationType').value;
+            document.getElementById('powderFields').style.display = calculationType === 'powder' ? 'block' : 'none';
+            document.getElementById('solutionFields').style.display = calculationType === 'solution' ? 'block' : 'none';
+        }
+
+        function validateInputs(calculationType) {
+            let missingFields = [];
+            
+            if (calculationType === 'powder') {
+                if (!document.getElementById('vialStrength').value) missingFields.push('Vial Strength');
+                if (!document.getElementById('numberOfVials').value) missingFields.push('Number of Vials');
+                if (!document.getElementById('diluentVolume').value) missingFields.push('Total Diluent Volume');
+            } else if (calculationType === 'solution') {
+                if (!document.getElementById('solutionConcentration').value) missingFields.push('Solution Concentration');
+            }
+            
+            if (!document.getElementById('desiredDose').value) missingFields.push('Desired Dose');
+
+            return missingFields;
+        }
+
+        function calculate() {
+            const calculationType = document.getElementById('calculationType').value;
+            const missingFields = validateInputs(calculationType);
+            
+            if (missingFields.length > 0) {
+                document.getElementById('result').innerHTML = `<div class="error">Please fill in the following required field(s): ${missingFields.join(', ')}</div>`;
+                return;
+            }
+
+            let desiredDose = parseFloat(document.getElementById('desiredDose').value);
+            const doseUnit = document.getElementById('doseUnit').value;
+            if (doseUnit === 'g') {
+                desiredDose *= 1000; // Convert grams to milligrams
+            }
+
+            let result = '';
+            let warning = '';
+
+            try {
+                if (calculationType === 'powder') {
+                    const vialStrength = parseFloat(document.getElementById('vialStrength').value);
+                    const numberOfVials = parseFloat(document.getElementById('numberOfVials').value);
+                    const diluentVolume = parseFloat(document.getElementById('diluentVolume').value);
+
+                    if (vialStrength <= 0 || numberOfVials <= 0 || diluentVolume <= 0 || desiredDose <= 0) {
+                        throw new Error("All numerical values must be greater than zero.");
+                    }
+
+                    const totalStrength = vialStrength * numberOfVials;
+                    const concentration = totalStrength / diluentVolume;
+                    const volumeToWithdraw = desiredDose / concentration;
+
+                    if (volumeToWithdraw > diluentVolume) {
+                        const vialsNeeded = Math.ceil(desiredDose / vialStrength);
+                        warning = `The calculated volume (${volumeToWithdraw.toFixed(2)} mL) exceeds the total diluent volume (${diluentVolume} mL). You need at least ${vialsNeeded} vial(s) for this dose.`;
+                        result = `Cannot withdraw more than ${diluentVolume} mL. Please adjust the number of vials or desired dose.`;
+                    } else {
+                        result = `Withdraw ${volumeToWithdraw.toFixed(2)} mL from the reconstituted solution.`;
+                    }
+
+                    if (desiredDose > totalStrength) {
+                        const vialsNeeded = Math.ceil(desiredDose / vialStrength);
+                        warning = `The desired dose (${desiredDose} mg) exceeds the total available strength (${totalStrength} mg). You need at least ${vialsNeeded} vial(s) for this dose.`;
+                    }
+                } else if (calculationType === 'solution') {
+                    const concentrationType = document.getElementById('concentrationType').value;
+                    let solutionConcentration = parseFloat(document.getElementById('solutionConcentration').value);
+                    
+                    if (solutionConcentration <= 0 || desiredDose <= 0) {
+                        throw new Error("All numerical values must be greater than zero.");
+                    }
+
+                    if (concentrationType === 'percentage') {
+                        // Convert percentage to mg/mL
+                        solutionConcentration = solutionConcentration * 10; // 1% = 10 mg/mL
+                    }
+
+                    const volumeToWithdraw = desiredDose / solutionConcentration;
+                    result = `Withdraw ${volumeToWithdraw.toFixed(2)} mL of the solution.`;
+                }
+
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = result;
+                if (warning) {
+                    resultDiv.innerHTML += `<div class="warning">${warning}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('calculationType').value = 'powder';
+            document.getElementById('vialStrength').value = '';
+            document.getElementById('numberOfVials').value = '';
+            document.getElementById('diluentVolume').value = '';
+            document.getElementById('concentrationType').value = 'mgml';
+            document.getElementById('solutionConcentration').value = '';
+            document.getElementById('desiredDose').value = '';
+            document.getElementById('doseUnit').value = 'mg';
+            document.getElementById('result').innerHTML = '';
+            toggleFields();
+        }
+
+        document.getElementById('calculationType').addEventListener('change', toggleFields);
+    </script>
+</body>
+</html>
